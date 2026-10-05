@@ -1,9 +1,21 @@
 package com.cricket.service;
 
+import com.cricket.dto.CreateMatchRequest;
 import com.cricket.dto.ScoreUpdateRequest;
+import com.cricket.entity.BallEventEntity;
+import com.cricket.entity.MatchEntity;
+import com.cricket.entity.TeamEntity;
 import com.cricket.model.*;
+import com.cricket.repository.BallEventEntityRepository;
+import com.cricket.repository.MatchEntityRepository;
+import com.cricket.repository.TeamRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -13,23 +25,60 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class CricketMatchService {
 
+    private static final Logger log = LoggerFactory.getLogger(CricketMatchService.class);
+
     private final Map<String, Match> matchStore = new ConcurrentHashMap<>();
     private final SseEmitterService sseEmitterService;
+    private final MatchEntityRepository matchEntityRepository;
+    private final BallEventEntityRepository ballEventEntityRepository;
+    private final TeamRepository teamRepository;
+    private final ObjectMapper objectMapper;
 
-    public CricketMatchService(SseEmitterService sseEmitterService) {
+    public CricketMatchService(SseEmitterService sseEmitterService,
+                               MatchEntityRepository matchEntityRepository,
+                               BallEventEntityRepository ballEventEntityRepository,
+                               TeamRepository teamRepository,
+                               ObjectMapper objectMapper) {
         this.sseEmitterService = sseEmitterService;
+        this.matchEntityRepository = matchEntityRepository;
+        this.ballEventEntityRepository = ballEventEntityRepository;
+        this.teamRepository = teamRepository;
+        this.objectMapper = objectMapper;
     }
 
     @PostConstruct
     public void init() {
-        initDefaultMatches();
+        loadOrInitializeMatches();
     }
 
-    public void initDefaultMatches() {
+    public synchronized void loadOrInitializeMatches() {
         matchStore.clear();
-        createIndVsAusMatch();
-        createEngVsPakMatch();
-        createCskVsMiMatch();
+        List<MatchEntity> persistedMatches = matchEntityRepository.findAll();
+
+        if (persistedMatches.isEmpty()) {
+            log.info("No matches found in database. Initializing default sample matches...");
+            createIndVsAusMatch();
+            createEngVsPakMatch();
+            createCskVsMiMatch();
+        } else {
+            log.info("Loading {} matches from persistent database storage...", persistedMatches.size());
+            for (MatchEntity entity : persistedMatches) {
+                try {
+                    if (entity.getMatchDataJson() != null && !entity.getMatchDataJson().isEmpty()) {
+                        Match match = objectMapper.readValue(entity.getMatchDataJson(), Match.class);
+                        matchStore.put(match.getId(), match);
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to rehydrate match {} from database: {}", entity.getId(), e.getMessage());
+                }
+            }
+            // If rehydration was empty for any reason, reseed
+            if (matchStore.isEmpty()) {
+                createIndVsAusMatch();
+                createEngVsPakMatch();
+                createCskVsMiMatch();
+            }
+        }
     }
 
     public List<Match> getAllMatches() {
@@ -40,6 +89,83 @@ public class CricketMatchService {
         return matchStore.get(id);
     }
 
+    @Transactional
+    public synchronized Match createMatch(CreateMatchRequest request) {
+        String matchId = "match-" + System.currentTimeMillis();
+
+        Match match = new Match();
+        match.setId(matchId);
+        match.setTitle(request.getTitle());
+        match.setSeries(request.getSeries() != null ? request.getSeries() : "T20 Championship 2026");
+        match.setMatchType(request.getMatchType() != null ? request.getMatchType() : "T20");
+        match.setVenue(request.getVenue());
+        match.setStatus("LIVE");
+        match.setMaxOvers(request.getMaxOvers() > 0 ? request.getMaxOvers() : 20);
+        match.setTossDetails(request.getTossDetails() != null ? request.getTossDetails() : request.getTeam1Name() + " won the toss and elected to bat");
+        match.setResultMessage(request.getTeam1Name() + " batting in 1st Innings");
+        match.setAutoSimulating(false);
+
+        // Team 1
+        List<String> squad1 = (request.getTeam1Squad() != null && !request.getTeam1Squad().isEmpty())
+                ? request.getTeam1Squad()
+                : defaultSquadForTeam(request.getTeam1Name());
+        String t1Short = request.getTeam1ShortName() != null ? request.getTeam1ShortName() : deriveShortName(request.getTeam1Name());
+        Team team1 = new Team(request.getTeam1Name(), t1Short, t1Short, request.getTeam1Flag(), request.getTeam1Color(), squad1);
+
+        // Team 2
+        List<String> squad2 = (request.getTeam2Squad() != null && !request.getTeam2Squad().isEmpty())
+                ? request.getTeam2Squad()
+                : defaultSquadForTeam(request.getTeam2Name());
+        String t2Short = request.getTeam2ShortName() != null ? request.getTeam2ShortName() : deriveShortName(request.getTeam2Name());
+        Team team2 = new Team(request.getTeam2Name(), t2Short, t2Short, request.getTeam2Flag(), request.getTeam2Color(), squad2);
+
+        match.setTeam1(team1);
+        match.setTeam2(team2);
+
+        // Innings 1
+        Innings inn1 = new Innings(1, team1.getShortName(), team2.getShortName());
+        setupInningsPlayers(inn1, team1, team2);
+        match.getInnings().add(inn1);
+        match.setCurrentInningsIndex(0);
+
+        matchStore.put(match.getId(), match);
+        persistMatch(match);
+        sseEmitterService.broadcastMatchUpdate(match);
+
+        log.info("Created new match: {} [{}]", match.getTitle(), match.getId());
+        return match;
+    }
+
+    @Transactional
+    public synchronized boolean deleteMatch(String id) {
+        Match removed = matchStore.remove(id);
+        if (removed != null) {
+            try {
+                matchEntityRepository.deleteById(id);
+                ballEventEntityRepository.deleteByMatchId(id);
+                log.info("Deleted match {} from persistent storage", id);
+                return true;
+            } catch (Exception e) {
+                log.error("Error deleting match {}: {}", id, e.getMessage());
+            }
+        }
+        return false;
+    }
+
+    @Transactional
+    public synchronized Match updateMatchStatus(String id, String status) {
+        Match match = matchStore.get(id);
+        if (match != null) {
+            match.setStatus(status.toUpperCase());
+            if ("COMPLETED".equalsIgnoreCase(status)) {
+                match.setAutoSimulating(false);
+            }
+            persistMatch(match);
+            sseEmitterService.broadcastMatchUpdate(match);
+        }
+        return match;
+    }
+
     public synchronized Match resetMatch(String id) {
         if ("match-1".equals(id)) {
             createIndVsAusMatch();
@@ -47,6 +173,19 @@ public class CricketMatchService {
             createEngVsPakMatch();
         } else if ("match-3".equals(id)) {
             createCskVsMiMatch();
+        } else {
+            Match m = matchStore.get(id);
+            if (m != null) {
+                m.getInnings().clear();
+                Innings inn1 = new Innings(1, m.getTeam1().getShortName(), m.getTeam2().getShortName());
+                setupInningsPlayers(inn1, m.getTeam1(), m.getTeam2());
+                m.getInnings().add(inn1);
+                m.setCurrentInningsIndex(0);
+                m.setStatus("LIVE");
+                m.setTarget(null);
+                m.setResultMessage(m.getTeam1().getShortName() + " batting in 1st Innings");
+                persistMatch(m);
+            }
         }
         Match m = matchStore.get(id);
         if (m != null) {
@@ -55,6 +194,7 @@ public class CricketMatchService {
         return m;
     }
 
+    @Transactional
     public synchronized Match processBallUpdate(String matchId, ScoreUpdateRequest request) {
         Match match = matchStore.get(matchId);
         if (match == null || "COMPLETED".equals(match.getStatus())) {
@@ -173,6 +313,29 @@ public class CricketMatchService {
         }
         innings.getAllBallEvents().add(0, ballEvent); // Latest first for commentary
 
+        // Persist BallEventEntity in database
+        try {
+            BallEventEntity ballEntity = new BallEventEntity(
+                    matchId,
+                    innings.getInningsNumber(),
+                    overNum,
+                    ballInOver,
+                    striker.getName(),
+                    bowler.getName(),
+                    runs,
+                    isWicket,
+                    wicketType,
+                    isExtra,
+                    extraType,
+                    display,
+                    commentary,
+                    ballEvent.getTimestamp()
+            );
+            ballEventEntityRepository.save(ballEntity);
+        } catch (Exception e) {
+            log.error("Failed to persist ball event: {}", e.getMessage());
+        }
+
         // Partnership
         Partnership partnership = innings.getCurrentPartnership();
         if (partnership != null) {
@@ -243,10 +406,47 @@ public class CricketMatchService {
             }
         }
 
+        // Persist updated match state in DB
+        persistMatch(match);
+
         // Broadcast to SSE clients
         sseEmitterService.broadcastMatchUpdate(match);
 
         return match;
+    }
+
+    public void persistMatch(Match match) {
+        try {
+            MatchEntity entity = matchEntityRepository.findById(match.getId()).orElse(new MatchEntity());
+            entity.setId(match.getId());
+            entity.setTitle(match.getTitle());
+            entity.setSeries(match.getSeries());
+            entity.setMatchType(match.getMatchType());
+            entity.setVenue(match.getVenue());
+            entity.setStatus(match.getStatus());
+            entity.setTossDetails(match.getTossDetails());
+            entity.setMaxOvers(match.getMaxOvers());
+            entity.setTarget(match.getTarget());
+            entity.setResultMessage(match.getResultMessage());
+            entity.setSimulationIntervalMs(match.getSimulationIntervalMs());
+            entity.setAutoSimulating(match.isAutoSimulating());
+            entity.setCurrentInningsIndex(match.getCurrentInningsIndex());
+
+            // Link TeamEntities if available
+            if (match.getTeam1() != null) {
+                teamRepository.findByNameIgnoreCase(match.getTeam1().getName()).ifPresent(entity::setTeam1);
+            }
+            if (match.getTeam2() != null) {
+                teamRepository.findByNameIgnoreCase(match.getTeam2().getName()).ifPresent(entity::setTeam2);
+            }
+
+            entity.setMatchDataJson(objectMapper.writeValueAsString(match));
+            matchEntityRepository.save(entity);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize match for persistence: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to save match entity: {}", e.getMessage());
+        }
     }
 
     private void swapStrike(Innings innings) {
@@ -271,7 +471,6 @@ public class CricketMatchService {
         BowlerStats current = innings.getCurrentBowler();
         if (current != null) current.setCurrent(false);
 
-        // Pick next bowler who isn't the one who just bowled
         for (BowlerStats b : bowlers) {
             if (!b.getId().equals(currentId) && b.getLegalBalls() < (match.getMaxOvers() / 5) * 6) {
                 b.setCurrent(true);
@@ -279,7 +478,6 @@ public class CricketMatchService {
                 return;
             }
         }
-        // Fallback
         for (BowlerStats b : bowlers) {
             if (!b.getId().equals(currentId)) {
                 b.setCurrent(true);
@@ -295,7 +493,6 @@ public class CricketMatchService {
                 return b;
             }
         }
-        // If not added yet from squad
         int nextIndex = innings.getBatsmen().size();
         if (nextIndex < battingTeam.getSquad().size()) {
             String playerName = battingTeam.getSquad().get(nextIndex);
@@ -328,7 +525,6 @@ public class CricketMatchService {
     }
 
     private void setupInningsPlayers(Innings innings, Team battingTeam, Team bowlingTeam) {
-        // Openers
         if (battingTeam.getSquad().size() >= 2) {
             BatsmanStats b1 = new BatsmanStats("bat-1", battingTeam.getSquad().get(0));
             b1.setBatting(true);
@@ -344,7 +540,6 @@ public class CricketMatchService {
             innings.getPartnerships().add(new Partnership(b1.getName(), b2.getName()));
         }
 
-        // Bowlers from bowling team (take 5 players from tail/allrounders)
         List<String> squad = bowlingTeam.getSquad();
         int start = Math.max(0, squad.size() - 5);
         for (int i = start; i < squad.size(); i++) {
@@ -430,7 +625,6 @@ public class CricketMatchService {
             summary.setTeam2Overs(inn2.getOversDisplay());
         }
 
-        // Determine top scorer and best bowler
         String topScorer = "N/A";
         int maxRuns = -1;
         String bestBowler = "N/A";
@@ -457,7 +651,7 @@ public class CricketMatchService {
 
         List<String> highlights = new ArrayList<>();
         highlights.add("High intensity clash hosted at " + match.getVenue());
-        highlights.add(match.getTossDetails());
+        highlights.add(match.getTossDetails() != null ? match.getTossDetails() : "Toss conducted");
         if (match.getTarget() != null) {
             highlights.add("Target set: " + match.getTarget() + " runs in " + match.getMaxOvers() + " overs");
         }
@@ -465,6 +659,28 @@ public class CricketMatchService {
         summary.setHighlights(highlights);
 
         return summary;
+    }
+
+    private List<String> defaultSquadForTeam(String teamName) {
+        Optional<TeamEntity> opt = teamRepository.findByNameIgnoreCase(teamName);
+        if (opt.isPresent() && !opt.get().getPlayers().isEmpty()) {
+            return opt.get().getPlayers().stream().map(p -> p.getName()).toList();
+        }
+        return List.of(
+                teamName + " Player 1", teamName + " Player 2", teamName + " Player 3",
+                teamName + " Player 4", teamName + " Player 5", teamName + " Player 6",
+                teamName + " Player 7", teamName + " Player 8", teamName + " Player 9",
+                teamName + " Player 10", teamName + " Player 11"
+        );
+    }
+
+    private String deriveShortName(String name) {
+        if (name == null || name.isEmpty()) return "TM";
+        String[] parts = name.trim().split("\\s+");
+        if (parts.length >= 2) {
+            return (parts[0].substring(0, 1) + parts[1].substring(0, Math.min(2, parts[1].length()))).toUpperCase();
+        }
+        return name.substring(0, Math.min(3, name.length())).toUpperCase();
     }
 
     private void createIndVsAusMatch() {
@@ -535,7 +751,7 @@ public class CricketMatchService {
         Innings inn2 = new Innings(2, "IND", "AUS");
         inn2.setTotalRuns(158);
         inn2.setWickets(4);
-        inn2.setLegalBalls(102); // 17.0 overs bowled, 18 balls remaining
+        inn2.setLegalBalls(102);
         inn2.setExtras(new Extras(4, 1, 0, 1, 0));
 
         BatsmanStats ind1 = new BatsmanStats("bat-i1", "Rohit Sharma (c)");
@@ -569,7 +785,6 @@ public class CricketMatchService {
 
         inn2.getFallOfWickets().addAll(List.of("52/1 (Jaiswal, 4.3 ov)", "68/2 (Rohit, 6.2 ov)", "119/3 (Suryakumar, 12.5 ov)"));
 
-        // Recent balls
         List<BallEvent> recents = List.of(
                 new BallEvent("b1", 2, 16, 1, "Virat Kohli", "Pat Cummins", 1, false, null, false, null, "1", "Kohli taps it towards deep point for a quick single.", "19:42:01"),
                 new BallEvent("b2", 2, 16, 2, "Hardik Pandya", "Pat Cummins", 4, false, null, false, null, "4", "FOUR! Hardik punches it sweetly through extra cover.", "19:42:24"),
@@ -591,6 +806,7 @@ public class CricketMatchService {
         match.setCurrentInningsIndex(1);
 
         matchStore.put(match.getId(), match);
+        persistMatch(match);
     }
 
     private void createEngVsPakMatch() {
@@ -660,6 +876,7 @@ public class CricketMatchService {
         match.setCurrentInningsIndex(1);
 
         matchStore.put(match.getId(), match);
+        persistMatch(match);
     }
 
     private void createCskVsMiMatch() {
@@ -713,5 +930,6 @@ public class CricketMatchService {
         match.setCurrentInningsIndex(0);
 
         matchStore.put(match.getId(), match);
+        persistMatch(match);
     }
 }
