@@ -23,10 +23,21 @@
         </div>
       </a>
 
-      <!-- Matches Selector Bar -->
-      <nav class="matches-bar" id="matches-bar" aria-label="Active Matches">
-        <!-- Rendered dynamically -->
-      </nav>
+      <!-- Matches Selector Bar & Quick Actions -->
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <nav class="matches-bar" id="matches-bar" aria-label="Active Matches">
+          <!-- Rendered dynamically -->
+        </nav>
+        <button id="btn-open-create-match" class="btn btn-primary" style="padding: 0.45rem 0.85rem; font-size: 0.82rem; white-space: nowrap;">
+          <span>➕ Create Match</span>
+        </button>
+        <a href="/swagger-ui/index.html" target="_blank" class="btn btn-secondary" style="padding: 0.45rem 0.75rem; font-size: 0.8rem; text-decoration: none; display: flex; align-items: center; gap: 0.3rem;" title="Interactive Swagger REST API Documentation">
+          <span>📖 Swagger API</span>
+        </a>
+        <a href="/h2-console" target="_blank" class="btn btn-secondary" style="padding: 0.45rem 0.75rem; font-size: 0.8rem; text-decoration: none; display: flex; align-items: center; gap: 0.3rem;" title="H2 Database Persistent Storage Console">
+          <span>🗄️ H2 Console</span>
+        </a>
+      </div>
     </div>
   </header>
 
@@ -40,7 +51,7 @@
           <h2 id="match-title">Loading Match...</h2>
           <p id="match-venue">Series • Venue</p>
         </div>
-        <div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
           <span class="live-indicator">
             <span class="dot"></span>
             <span id="match-status-badge">LIVE</span>
@@ -145,7 +156,7 @@
         </div>
         <div style="margin-top:1rem; font-size:0.8rem; color:var(--text-dim); display:flex; justify-content:space-between;">
           <span>Live Match Stream</span>
-          <span style="color:var(--accent-green);">● Connected SSE</span>
+          <span style="color:var(--accent-green);">● Connected SSE & Database Synced</span>
         </div>
       </div>
     </section>
@@ -163,7 +174,10 @@
           <span>🏆</span> Match Summary & Highlights
         </button>
         <button class="tab-btn" data-tab="admin-tab" role="tab">
-          <span>🎛️</span> Scoring Console & Simulator
+          <span>🎛️</span> Match & Score Console
+        </button>
+        <button class="tab-btn" data-tab="teams-tab" role="tab">
+          <span>👥</span> Teams & Players
         </button>
       </div>
     </section>
@@ -217,10 +231,32 @@
       </div>
     </section>
 
-    <!-- Tab 4: Scoring Console & Simulator -->
+    <!-- Tab 4: Scoring Console & Match Management -->
     <section class="tab-pane" id="admin-tab">
       <div class="control-panel">
         <h4><span>🎛️</span> Live Match Control & Scoring Console</h4>
+
+        <!-- Match Status & Actions -->
+        <div class="control-section">
+          <div class="control-section-title">Match State Management</div>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="btn btn-secondary" id="btn-status-live">
+              <span>🟢 Set LIVE</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-status-paused">
+              <span>⏸ Pause Match</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-status-completed">
+              <span>🏁 Complete Match</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-reset-match">
+              <span>🔄 Reset Match State</span>
+            </button>
+            <button class="btn btn-danger" id="btn-delete-match" style="margin-left: auto;">
+              <span>🗑️ Delete Match</span>
+            </button>
+          </div>
+        </div>
 
         <!-- Auto Simulation Speed & Switch -->
         <div class="control-section">
@@ -232,9 +268,6 @@
               <option value="2500" selected>Normal (2.5 seconds/ball)</option>
               <option value="4000">Slow (4.0 seconds/ball)</option>
             </select>
-            <button class="btn btn-secondary" id="btn-reset-match">
-              <span>🔄 Reset Match to Initial State</span>
-            </button>
           </div>
         </div>
 
@@ -277,11 +310,172 @@
       </div>
     </section>
 
+    <!-- Tab 5: Teams & Players Management -->
+    <section class="tab-pane" id="teams-tab">
+      <div class="teams-container">
+        <!-- Teams View Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h3 style="font-size: 1.25rem; font-weight: 700;">Teams & Player Roster</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Maintained in persistent H2 database storage</p>
+          </div>
+          <div style="display: flex; gap: 0.75rem;">
+            <button class="btn btn-primary" id="btn-toggle-add-player">
+              <span>👤 Add Player</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-toggle-add-team">
+              <span>🛡️ Add Team</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Collapsible Add Player Form -->
+        <div id="add-player-panel" class="hud-card" style="display: none; margin-bottom: 1.5rem; border-color: var(--accent-cyan);">
+          <h4 style="margin-bottom: 1rem; color: var(--accent-cyan);">➕ Add Player to Team Squad</h4>
+          <form id="form-add-player">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Player Name</label>
+                <input type="text" id="new-player-name" class="input-field" placeholder="e.g. Sanju Samson" required>
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Assign to Team</label>
+                <select id="new-player-team-select" class="select-field" style="width: 100%; height: 42px;" required>
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Player Role</label>
+                <select id="new-player-role" class="select-field" style="width: 100%; height: 42px;">
+                  <option value="BATSMAN">BATSMAN</option>
+                  <option value="BOWLER">BOWLER</option>
+                  <option value="ALL_ROUNDER">ALL_ROUNDER</option>
+                  <option value="WICKET_KEEPER">WICKET_KEEPER</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Batting Style</label>
+                <input type="text" id="new-player-batting" class="input-field" placeholder="e.g. Right-hand bat" value="Right-hand bat">
+              </div>
+            </div>
+            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+              <button type="button" class="btn btn-secondary" id="btn-cancel-player">Cancel</button>
+              <button type="submit" class="btn btn-success">Save Player to Database</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Collapsible Add Team Form -->
+        <div id="add-team-panel" class="hud-card" style="display: none; margin-bottom: 1.5rem; border-color: var(--accent-gold);">
+          <h4 style="margin-bottom: 1rem; color: var(--accent-gold);">➕ Register New Team</h4>
+          <form id="form-add-team">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Team Full Name</label>
+                <input type="text" id="new-team-name" class="input-field" placeholder="e.g. South Africa" required>
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Short Code (e.g. SA)</label>
+                <input type="text" id="new-team-short" class="input-field" placeholder="e.g. SA" required maxlength="10">
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Flag Emoji</label>
+                <input type="text" id="new-team-flag" class="input-field" placeholder="e.g. 🇿🇦" value="🏏">
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Theme Color</label>
+                <input type="color" id="new-team-color" value="#0078FF" style="width: 100%; height: 42px; border-radius: var(--radius-sm); border: 1px solid var(--border-glass); background: var(--bg-secondary);">
+              </div>
+            </div>
+            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+              <button type="button" class="btn btn-secondary" id="btn-cancel-team">Cancel</button>
+              <button type="submit" class="btn btn-success">Save Team to Database</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Teams Cards Display -->
+        <div id="teams-grid" class="teams-cards-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
   </main>
+
+  <!-- Modal: Create New Match -->
+  <div class="modal-overlay" id="create-match-modal" style="display: none;">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>🏏 Create Ongoing Cricket Match</h3>
+        <button class="modal-close-btn" id="btn-close-modal">&times;</button>
+      </div>
+      <form id="form-create-match">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Match Title</label>
+            <input type="text" id="match-input-title" class="input-field" placeholder="e.g. India vs South Africa - 1st T20I" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Tournament / Series</label>
+              <input type="text" id="match-input-series" class="input-field" placeholder="T20 Championship 2026" value="T20 World Cup 2026">
+            </div>
+            <div class="form-group">
+              <label>Match Type</label>
+              <select id="match-input-type" class="select-field" style="width: 100%;">
+                <option value="T20" selected>T20 (20 Overs)</option>
+                <option value="ODI">ODI (50 Overs)</option>
+                <option value="T10">T10 (10 Overs)</option>
+                <option value="TEST">TEST</option>
+              </select>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Stadium / Venue</label>
+              <input type="text" id="match-input-venue" class="input-field" placeholder="e.g. Eden Gardens, Kolkata" required>
+            </div>
+            <div class="form-group">
+              <label>Max Overs</label>
+              <input type="number" id="match-input-overs" class="input-field" value="20" min="1" max="50">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Team 1 (Batting First)</label>
+              <input type="text" id="match-input-team1" class="input-field" placeholder="e.g. India" required>
+            </div>
+            <div class="form-group">
+              <label>Team 2 (Bowling First)</label>
+              <input type="text" id="match-input-team2" class="input-field" placeholder="e.g. Australia" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Toss Decision / Details</label>
+            <input type="text" id="match-input-toss" class="input-field" placeholder="e.g. Team 1 won the toss and elected to bat first">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-create-match">Cancel</button>
+          <button type="submit" class="btn btn-primary">Start & Save Match</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Footer -->
   <footer class="footer">
-    <p>Cricket Score Management System • Scalable Spring Boot & REST APIs • Real-Time Simulation Engine</p>
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
+      <p><strong>Cricket Score Management System</strong> • Spring Boot 3 & REST API Platform with Persistent H2 Database</p>
+      <div style="display: flex; gap: 1rem; font-size: 0.8rem;">
+        <a href="/swagger-ui/index.html" target="_blank" style="color: var(--accent-cyan); text-decoration: none;">📖 Interactive Swagger Documentation</a>
+        <span>•</span>
+        <a href="/h2-console" target="_blank" style="color: var(--accent-gold); text-decoration: none;">🗄️ H2 Database Management Console</a>
+        <span>•</span>
+        <span style="color: var(--text-dim);">JDBC: jdbc:h2:file:./data/cricketdb (User: sa)</span>
+      </div>
+    </div>
   </footer>
 
   <script src="/js/app.js"></script>
