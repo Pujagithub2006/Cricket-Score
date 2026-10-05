@@ -367,11 +367,11 @@ function renderScorecards(match) {
             <strong>${b.name}</strong>
             <div style="font-size:0.75rem; color:var(--text-dim);">${b.dismissal || (b.batting ? "batting" : "not out")}</div>
           </td>
-          <td><strong>${b.runs}</strong></td>
-          <td>${b.balls}</td>
-          <td>${b.fours}</td>
-          <td>${b.sixes}</td>
-          <td>${b.strikeRate}</td>
+          <td class="text-right"><strong>${b.runs}</strong></td>
+          <td class="text-right">${b.balls}</td>
+          <td class="text-right">${b.fours}</td>
+          <td class="text-right">${b.sixes}</td>
+          <td class="text-right" style="color:var(--accent-cyan); font-weight:600;">${b.strikeRate}</td>
         </tr>
       `;
     });
@@ -381,11 +381,11 @@ function renderScorecards(match) {
       bowlerRows += `
         <tr>
           <td><strong>${bw.name}</strong></td>
-          <td>${bw.oversDisplay}</td>
-          <td>${bw.maidens}</td>
-          <td>${bw.runsConceded}</td>
-          <td><strong style="color:var(--accent-red);">${bw.wickets}</strong></td>
-          <td>${bw.economyRate}</td>
+          <td class="text-right">${bw.oversDisplay}</td>
+          <td class="text-right">${bw.maidens}</td>
+          <td class="text-right">${bw.runsConceded}</td>
+          <td class="text-right"><strong style="color:var(--accent-red);">${bw.wickets}</strong></td>
+          <td class="text-right" style="color:var(--accent-gold);">${bw.economyRate}</td>
         </tr>
       `;
     });
@@ -409,12 +409,12 @@ function renderScorecards(match) {
         <table class="scorecard-table">
           <thead>
             <tr>
-              <th>Batter</th>
-              <th>R</th>
-              <th>B</th>
-              <th>4s</th>
-              <th>6s</th>
-              <th>SR</th>
+              <th style="min-width: 160px;">Batter</th>
+              <th class="text-right">R</th>
+              <th class="text-right">B</th>
+              <th class="text-right">4s</th>
+              <th class="text-right">6s</th>
+              <th class="text-right">SR</th>
             </tr>
           </thead>
           <tbody>
@@ -423,12 +423,12 @@ function renderScorecards(match) {
         </table>
       </div>
 
-      <div style="padding:0.75rem 1rem; border-top:1px solid var(--border-glass); border-bottom:1px solid var(--border-glass); display:flex; justify-content:space-between; font-size:0.85rem;">
+      <div class="scorecard-summary-strip">
         <span><strong>Extras:</strong> ${extrasText}</span>
         <span><strong>Total:</strong> ${inn.totalRuns}/${inn.wickets} (CRR: ${inn.runRate})</span>
       </div>
 
-      <div style="padding:0.75rem 1rem; font-size:0.8rem; color:var(--text-muted); border-bottom:1px solid var(--border-glass);">
+      <div class="scorecard-fow-strip">
         <strong>Fall of Wickets:</strong> ${fowText}
       </div>
 
@@ -436,12 +436,12 @@ function renderScorecards(match) {
         <table class="scorecard-table">
           <thead>
             <tr>
-              <th>Bowler</th>
-              <th>O</th>
-              <th>M</th>
-              <th>R</th>
-              <th>W</th>
-              <th>ECON</th>
+              <th style="min-width: 160px;">Bowler</th>
+              <th class="text-right">O</th>
+              <th class="text-right">M</th>
+              <th class="text-right">R</th>
+              <th class="text-right">W</th>
+              <th class="text-right">ECON</th>
             </tr>
           </thead>
           <tbody>

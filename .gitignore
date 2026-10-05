@@ -40,3 +40,7 @@ data/
 *.db
 *.mv.db
 *.trace.db
+
+### Node Dependencies ###
+node_modules/
+
