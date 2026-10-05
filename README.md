@@ -7,15 +7,13 @@ A scalable, real-time cricket scoring platform built with **Spring Boot 3**, pro
 ## Table of Contents
 
 - [Overview](#overview)
-- [Requirements Checklist & Verification](#requirements-checklist--verification)
+- [Requirements Checklist and Verification](#requirements-checklist-and-verification)
 - [System Architecture](#system-architecture)
-- [Database Details & Persistent Storage](#database-details--persistent-storage)
-- [REST API Documentation & Testing](#rest-api-documentation--testing)
+- [Database Details and Persistent Storage](#database-details-and-persistent-storage)
+- [REST API Documentation and Testing](#rest-api-documentation-and-testing)
   - [Interactive Swagger UI](#interactive-swagger-ui)
   - [Postman Collection](#postman-collection)
-  - [cURL Command Examples](#curl-command-examples)
-- [Key Features & Operations](#key-features--operations)
-- [Project Structure](#project-structure)
+  - [REST API Endpoints](#rest-api-endpoints)
 - [Installation and Setup](#installation-and-setup)
 - [Demonstration Walkthrough (Sample Ongoing Matches)](#demonstration-walkthrough-sample-ongoing-matches)
 
@@ -27,25 +25,25 @@ The **Cricket Score Management System** simulates a live cricket scoring platfor
 
 ---
 
-## Requirements Checklist & Verification
+## Requirements Checklist and Verification
 
 | Requirement | Status | Implementation Details |
 | :--- | :---: | :--- |
-| **Spring Boot Core** | ✅ Complete | Built on Spring Boot 3.3.4, Java 17/25, Tomcat 10.1 embedded on port 8085. |
-| **Create & Manage Matches** | ✅ Complete | REST endpoints `POST /api/matches`, `DELETE /api/matches/{id}`, `PUT /api/matches/{id}/status`, plus UI creation modal. |
-| **Maintain Teams & Players** | ✅ Complete | JPA entities `TeamEntity`, `PlayerEntity`, repositories, REST endpoints `GET/POST /api/teams`, `GET/POST /api/players`, and dedicated "Teams & Players" UI tab. |
-| **Record Runs, Wickets, Overs, Events** | ✅ Complete | `POST /api/matches/{id}/score-update` records dots, runs (1-6), wickets (bowled, caught, lbw, run-out), extras (wides, no-balls, byes, leg-byes), and persists each `BallEventEntity` to the database. |
-| **Match & Score Management** | ✅ Complete | Match status transitions (LIVE, PAUSED, COMPLETED), strike rotations, over completions, bowler rotations, chase completion rules. |
-| **Responsive Live Dashboard** | ✅ Complete | Semantic HTML5 & CSS3 with SSE streaming (`/api/matches/{id}/stream`) and fallback polling. |
-| **Current Batting & Bowling Stats** | ✅ Complete | Live striker/non-striker indicators, balls faced, boundary counts, strike rates, current bowler overs, maidens, wickets, runs conceded, and economy. |
-| **Match Summaries & Information** | ✅ Complete | Dedicated summary endpoint (`GET /api/matches/{id}/summary`) with Player of the Match, top run-scorer, best bowler, and match highlights. |
-| **Database Connectivity for Persistent Storage** | ✅ Complete | Spring Data JPA + H2 persistent file-based database (`./data/cricketdb`) with H2 Web Console (`/h2-console`). |
-| **Test REST APIs** | ✅ Complete | 13 automated MockMvc integration tests (`mvn test`), interactive Swagger UI (`/swagger-ui/index.html`), and ready-to-import Postman Collection (`Cricket_Score_Management_API.postman_collection.json`). |
-| **Sample Ongoing Matches Demonstration** | ✅ Complete | Pre-seeded and custom ongoing fixtures (India vs Australia decider, England vs Pakistan clash, CSK vs MI IPL thriller, and custom created matches). |
+| **Spring Boot Core** | Complete | Built on Spring Boot 3.3.4, Java 17/25, Tomcat 10.1 embedded on port 8085. |
+| **Create and Manage Matches** | Complete | REST endpoints `POST /api/matches`, `DELETE /api/matches/{id}`, `PUT /api/matches/{id}/status`, plus user interface creation modal. |
+| **Maintain Teams and Players** | Complete | JPA entities `TeamEntity`, `PlayerEntity`, repositories, REST endpoints `GET/POST /api/teams`, `GET/POST /api/players`, and dedicated "Teams & Players" interface tab. |
+| **Record Runs, Wickets, Overs, Events** | Complete | `POST /api/matches/{id}/score-update` records dot deliveries, runs (1 to 6), dismissals (bowled, caught, lbw, run-out), extras (wides, no-balls, byes, leg-byes), and persists each `BallEventEntity` to the database. |
+| **Match and Score Management** | Complete | Match status transitions (LIVE, PAUSED, COMPLETED), strike rotations, over completions, bowler rotations, and run chase target evaluations. |
+| **Responsive Live Dashboard** | Complete | Semantic HTML5 and CSS3 dashboard with SSE streaming (`/api/matches/{id}/stream`) and fallback polling. |
+| **Current Batting and Bowling Stats** | Complete | Live striker/non-striker indicators, balls faced, boundary counts, strike rates, current bowler overs, maidens, wickets, runs conceded, and economy rates. |
+| **Match Summaries and Information** | Complete | Dedicated summary endpoint (`GET /api/matches/{id}/summary`) with Player of the Match, top run-scorer, best bowler, and match highlights. |
+| **Database Connectivity for Persistent Storage** | Complete | Spring Data JPA with H2 persistent file-based database (`./data/cricketdb`) and H2 Web Console (`/h2-console`). |
+| **Test REST APIs** | Complete | 13 automated MockMvc integration tests (`mvn test`), interactive Swagger UI (`/swagger-ui/index.html`), and ready-to-import Postman Collection (`Cricket_Score_Management_API.postman_collection.json`). |
+| **Sample Ongoing Matches Demonstration** | Complete | Pre-seeded and custom ongoing fixtures (India vs Australia decider, England vs Pakistan clash, CSK vs MI IPL match, and custom created matches). |
 
 ---
 
-## Database Details & Persistent Storage
+## Database Details and Persistent Storage
 
 The application uses **Spring Data JPA** with an **H2 file-backed relational database**. All teams, players, matches, innings snapshots, and individual ball deliveries are stored persistently in `./data/cricketdb.mv.db`.
 
@@ -58,7 +56,7 @@ The application uses **Spring Data JPA** with an **H2 file-backed relational dat
 - **Password**: `password`
 - **H2 Web Console URL**: `http://localhost:8085/h2-console`
 
-### Database Schema & Tables
+### Database Schema and Tables
 
 ```mermaid
 erDiagram
@@ -127,14 +125,14 @@ erDiagram
 
 ---
 
-## REST API Documentation & Testing
+## REST API Documentation and Testing
 
 ### Interactive Swagger UI
 The application integrates **SpringDoc OpenAPI 3**. Navigate in your browser to:
 ```
 http://localhost:8085/swagger-ui/index.html
 ```
-From Swagger UI, you can inspect schemas, execute live API calls, and capture screenshots for documentation.
+From Swagger UI, users can inspect schemas, execute live API calls, and capture screenshots for technical reports.
 
 ### Postman Collection
 A pre-built Postman collection is included in the project root:
@@ -142,21 +140,21 @@ A pre-built Postman collection is included in the project root:
 - **Base URL variable**: `http://localhost:8085`
 - Contains ready-to-execute requests for Matches, Ball Scoring, Live Simulation, Teams, and Players.
 
-### Key REST Endpoints
+### REST API Endpoints
 
 | Category | Method | Endpoint | Description |
 | :--- | :--- | :--- | :--- |
 | **Matches** | `GET` | `/api/matches` | Retrieve all matches |
 | | `GET` | `/api/matches/{id}` | Retrieve match details, active players, and scorecards |
-| | `POST` | `/api/matches` | Create a new match and persist to DB |
+| | `POST` | `/api/matches` | Create a new match and persist to database |
 | | `DELETE`| `/api/matches/{id}` | Delete a match and associated ball history |
 | | `PUT` | `/api/matches/{id}/status?status=...`| Update match status (LIVE, PAUSED, COMPLETED) |
 | | `POST` | `/api/matches/{id}/reset` | Reset match state to initial scenario |
-| | `GET` | `/api/matches/{id}/summary` | Retrieve post-match summary & awards |
+| | `GET` | `/api/matches/{id}/summary` | Retrieve post-match summary and awards |
 | **Scoring** | `POST` | `/api/matches/{id}/score-update` | Manually record runs, wickets, extras, commentary |
-| | `POST` | `/api/matches/{id}/simulate-ball`| Probabilistically simulate next ball |
+| | `POST` | `/api/matches/{id}/simulate-ball`| Probabilistically simulate next delivery |
 | | `POST` | `/api/matches/{id}/auto-simulation`| Toggle background live delivery simulation |
-| | `GET` | `/api/matches/{id}/stream` | SSE stream for zero-latency live score push |
+| | `GET` | `/api/matches/{id}/stream` | SSE stream for zero-latency live score broadcast |
 | **Teams** | `GET` | `/api/teams` | Get all teams and squads |
 | | `GET` | `/api/teams/{id}` | Get team details by ID |
 | | `POST` | `/api/teams` | Register a new team in database |
@@ -182,7 +180,7 @@ java -jar target/cricket-score-management-1.0.0.jar
 - **Web Dashboard**: `http://localhost:8085`
 - **Swagger OpenAPI Docs**: `http://localhost:8085/swagger-ui/index.html`
 - **H2 Database Web Console**: `http://localhost:8085/h2-console`
-  *(JDBC URL: `jdbc:h2:file:./data/cricketdb`, User: `sa`, Password: `password`)*
+  *(JDBC URL: `jdbc:h2:file:./data/cricketdb`, Username: `sa`, Password: `password`)*
 
 ---
 
@@ -190,13 +188,13 @@ java -jar target/cricket-score-management-1.0.0.jar
 
 1. **India vs Australia (3rd T20I Decider)**:
    - India chasing 189 at Wankhede Stadium.
-   - Click **⚡ Step Ball** or **▶ Start Live Sim** to watch the chase unfold in real time.
+   - Click **Step Ball** or **Start Live Sim** to watch the chase unfold in real time.
 2. **England vs Pakistan (T20 Super Clash)**:
    - England chasing 166 at Melbourne Cricket Ground.
 3. **Chennai Super Kings vs Mumbai Indians (IPL Clash)**:
    - CSK batting first at Chepauk Stadium.
 4. **Custom Match Creation**:
-   - Click **➕ Create Match** on the dashboard, input teams (e.g. South Africa vs New Zealand), venue, and overs.
+   - Click **Create Match** on the dashboard, input teams (e.g., South Africa vs New Zealand), venue, and overs.
    - The match will be saved to the H2 database and appear immediately in the top navigation bar.
-5. **Teams & Squads Inspection**:
-   - Click the **👥 Teams & Players** tab to inspect full squads, player roles, and add new players/teams directly into persistent database storage.
+5. **Teams and Squads Inspection**:
+   - Click the **Teams & Players** tab to inspect full squads, player roles, and add new players/teams directly into persistent database storage.
