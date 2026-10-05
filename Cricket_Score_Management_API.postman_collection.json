@@ -1,0 +1,338 @@
+{
+  "info": {
+    "_postman_id": "c7a8b6d3-2f09-4e78-9b88-123456789abc",
+    "name": "Cricket Score Management API Collection",
+    "description": "Comprehensive Postman test collection for testing all REST APIs of Cricket Score Management System (Matches, Innings, Live Simulation, Ball Scoring, Teams, and Players).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Matches",
+      "item": [
+        {
+          "name": "1. Get All Matches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches"]
+            },
+            "description": "Retrieve all live, upcoming, and completed cricket matches."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get Match By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-1"]
+            },
+            "description": "Retrieve complete match details including scorecard, active batsmen, and current bowler."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Create New Match",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"South Africa vs New Zealand - 1st T20I\",\n  \"series\": \"Freedom Series 2026\",\n  \"matchType\": \"T20\",\n  \"venue\": \"Newlands, Cape Town\",\n  \"maxOvers\": 20,\n  \"team1Name\": \"South Africa\",\n  \"team1ShortName\": \"SA\",\n  \"team1Flag\": \"🇿🇦\",\n  \"team1Color\": \"#007A4D\",\n  \"team2Name\": \"New Zealand\",\n  \"team2ShortName\": \"NZ\",\n  \"team2Flag\": \"🇳🇿\",\n  \"team2Color\": \"#000000\",\n  \"tossDetails\": \"South Africa won the toss and elected to bat first\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/matches",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches"]
+            },
+            "description": "Create a new match and persist it in the H2 database."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Match Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-1/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-1", "summary"]
+            },
+            "description": "Retrieve post-match summary with Player of the Match, top scorer, and key highlights."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Update Match Status",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-1/status?status=PAUSED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-1", "status"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PAUSED"
+                }
+              ]
+            },
+            "description": "Update match state (LIVE, PAUSED, COMPLETED)."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Reset Match",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-1/reset",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-1", "reset"]
+            },
+            "description": "Reset match state back to starting demo scenario."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Delete Match",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-3",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-3"]
+            },
+            "description": "Delete a match and its ball events from database storage."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Scoring & Simulation",
+      "item": [
+        {
+          "name": "1. Step / Simulate Single Ball",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-1/simulate-ball",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-1", "simulate-ball"]
+            },
+            "description": "Probabilistically simulate the next delivery and update batsman/bowler stats."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Toggle Auto-Simulation (Start)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"intervalMs\": 2500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-1/auto-simulation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-1", "auto-simulation"]
+            },
+            "description": "Start background live delivery simulation at 2.5s interval."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Manual Score - Boundary 4 Runs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"runs\": 4,\n  \"isWicket\": false,\n  \"isExtra\": false,\n  \"customCommentary\": \"Crisp cover drive racing away to the rope for four runs!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-1/score-update",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-1", "score-update"]
+            },
+            "description": "Manually score 4 runs off a delivery with commentary."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Manual Score - Wicket (Bowled)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"runs\": 0,\n  \"isWicket\": true,\n  \"wicketType\": \"bowled\",\n  \"isExtra\": false,\n  \"customCommentary\": \"Clean bowled! Yorker hits base of middle stump!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-1/score-update",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-1", "score-update"]
+            },
+            "description": "Record a dismissal (bowled, caught, lbw, run_out)."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Manual Score - Extra (Wide)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"runs\": 1,\n  \"isWicket\": false,\n  \"isExtra\": true,\n  \"extraType\": \"wide\",\n  \"customCommentary\": \"Fired way outside off stump, umpire signals wide.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-1/score-update",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-1", "score-update"]
+            },
+            "description": "Record extra delivery (wide, noball, bye, legbye)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Teams & Players",
+      "item": [
+        {
+          "name": "1. Get All Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teams",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams"]
+            },
+            "description": "Retrieve all registered teams with their squads."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get Team By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teams/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams", "1"]
+            },
+            "description": "Retrieve specific team and player squad."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Create Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sri Lanka\",\n  \"shortName\": \"SL\",\n  \"code\": \"SL\",\n  \"flag\": \"🇱🇰\",\n  \"primaryColor\": \"#1A237E\",\n  \"playerNames\": [\"Wanindu Hasaranga\", \"Pathum Nissanka\", \"Kusal Mendis\", \"Charith Asalanka\", \"Matheesha Pathirana\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teams",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams"]
+            },
+            "description": "Register a new national or league cricket team."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get All Players",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/players",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "players"]
+            },
+            "description": "Retrieve all players across all teams."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Add Player to Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rishabh Pant (wk)\",\n  \"role\": \"WICKET_KEEPER\",\n  \"battingStyle\": \"Left-hand bat\",\n  \"bowlingStyle\": \"None\",\n  \"teamId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/players",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "players"]
+            },
+            "description": "Add a new player profile and attach to a team squad."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8085"
+    }
+  ]
+}
