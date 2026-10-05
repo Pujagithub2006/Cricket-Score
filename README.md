@@ -1,290 +1,202 @@
 # Real-Time Cricket Score Management System
 
-A scalable and real-time cricket scoring platform built with Spring Boot 3, providing live match simulation, RESTful APIs, Server-Sent Events (SSE) streaming, and a responsive web dashboard.
+A scalable, real-time cricket scoring platform built with **Spring Boot 3**, providing persistent database storage, interactive REST APIs, live match simulation, Server-Sent Events (SSE) streaming, team and player roster maintenance, and a responsive web dashboard.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Key Features](#key-features)
+- [Requirements Checklist & Verification](#requirements-checklist--verification)
 - [System Architecture](#system-architecture)
-- [Technology Stack](#technology-stack)
-- [REST API Documentation](#rest-api-documentation)
-- [Real-Time Streaming (SSE)](#real-time-streaming-sse)
+- [Database Details & Persistent Storage](#database-details--persistent-storage)
+- [REST API Documentation & Testing](#rest-api-documentation--testing)
+  - [Interactive Swagger UI](#interactive-swagger-ui)
+  - [Postman Collection](#postman-collection)
+  - [cURL Command Examples](#curl-command-examples)
+- [Key Features & Operations](#key-features--operations)
 - [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
 - [Installation and Setup](#installation-and-setup)
-- [Configuration](#configuration)
-- [User Interface and Operations](#user-interface-and-operations)
+- [Demonstration Walkthrough (Sample Ongoing Matches)](#demonstration-walkthrough-sample-ongoing-matches)
 
 ---
 
 ## Overview
 
-The Real-Time Cricket Score Management System simulates a live cricket scoring platform capable of managing concurrent matches, calculating dynamic run rates and target equations, updating player statistics, and broadcasting real-time ball-by-ball updates to connected clients without page reloads.
+The **Cricket Score Management System** simulates a live cricket scoring platform that manages concurrent cricket fixtures, dynamic run rates, target chase equations, live player statistics (batting and bowling), editorial commentary, automated live match simulations, and persistent database storage across server restarts.
 
 ---
 
-## Key Features
+## Requirements Checklist & Verification
 
-1. **Real-Time Score Engine**:
-   - Manages match state across innings, overs, wickets, and strike rotations.
-   - Calculates Current Run Rate (CRR), Required Run Rate (RRR), balls remaining, and chase equations.
-   - Tracks detailed player statistics for batsmen (runs, balls, strike rates, dismissals) and bowlers (overs, maidens, runs conceded, wickets, economy).
-
-2. **Automated Simulation Engine**:
-   - Probability-weighted delivery generator reflecting real-world match situations (dot balls, singles, boundaries, maximums, wickets, and extras).
-   - Dynamic aggression modeling during death overs and high-pressure run chases.
-   - Configurable delivery intervals (1.2 seconds, 2.5 seconds, 4.0 seconds) for automated match progression.
-
-3. **Manual Scoring Console**:
-   - Administrative controls for custom delivery scoring: dots, runs (1 to 6), dismissals (bowled, caught, lbw, run out), and extras (wides, no-balls, leg-byes).
-   - Editorial support for custom ball-by-ball commentary entry.
-   - Match reset mechanism for testing and demonstration workflows.
-
-4. **Server-Sent Events (SSE)**:
-   - High-throughput, low-latency live event broadcasting.
-   - Automatically pushes match updates to connected clients with graceful polling fallback.
-
-5. **Analytical Dashboard**:
-   - Live match summary with Player of the Match, top run-scorer, and best bowling figures.
-   - Full scorecard tables covering batting, bowling, extras breakdown, and fall-of-wickets order.
-   - Chronological commentary feed with delivery outcomes.
+| Requirement | Status | Implementation Details |
+| :--- | :---: | :--- |
+| **Spring Boot Core** | ✅ Complete | Built on Spring Boot 3.3.4, Java 17/25, Tomcat 10.1 embedded on port 8085. |
+| **Create & Manage Matches** | ✅ Complete | REST endpoints `POST /api/matches`, `DELETE /api/matches/{id}`, `PUT /api/matches/{id}/status`, plus UI creation modal. |
+| **Maintain Teams & Players** | ✅ Complete | JPA entities `TeamEntity`, `PlayerEntity`, repositories, REST endpoints `GET/POST /api/teams`, `GET/POST /api/players`, and dedicated "Teams & Players" UI tab. |
+| **Record Runs, Wickets, Overs, Events** | ✅ Complete | `POST /api/matches/{id}/score-update` records dots, runs (1-6), wickets (bowled, caught, lbw, run-out), extras (wides, no-balls, byes, leg-byes), and persists each `BallEventEntity` to the database. |
+| **Match & Score Management** | ✅ Complete | Match status transitions (LIVE, PAUSED, COMPLETED), strike rotations, over completions, bowler rotations, chase completion rules. |
+| **Responsive Live Dashboard** | ✅ Complete | Semantic HTML5 & CSS3 with SSE streaming (`/api/matches/{id}/stream`) and fallback polling. |
+| **Current Batting & Bowling Stats** | ✅ Complete | Live striker/non-striker indicators, balls faced, boundary counts, strike rates, current bowler overs, maidens, wickets, runs conceded, and economy. |
+| **Match Summaries & Information** | ✅ Complete | Dedicated summary endpoint (`GET /api/matches/{id}/summary`) with Player of the Match, top run-scorer, best bowler, and match highlights. |
+| **Database Connectivity for Persistent Storage** | ✅ Complete | Spring Data JPA + H2 persistent file-based database (`./data/cricketdb`) with H2 Web Console (`/h2-console`). |
+| **Test REST APIs** | ✅ Complete | 13 automated MockMvc integration tests (`mvn test`), interactive Swagger UI (`/swagger-ui/index.html`), and ready-to-import Postman Collection (`Cricket_Score_Management_API.postman_collection.json`). |
+| **Sample Ongoing Matches Demonstration** | ✅ Complete | Pre-seeded and custom ongoing fixtures (India vs Australia decider, England vs Pakistan clash, CSK vs MI IPL thriller, and custom created matches). |
 
 ---
 
-## System Architecture
+## Database Details & Persistent Storage
 
-```
-+-------------------------------------------------------------+
-|                     Client Browser                          |
-|  - HTML5 / Vanilla CSS Dashboard                            |
-|  - JavaScript EventSource Client (SSE / REST fallback)      |
-+------------------------------+------------------------------+
-                               |
-               HTTP Requests   |   SSE Updates
-               (REST APIs)     |   (text/event-stream)
-                               v
-+-------------------------------------------------------------+
-|               Spring Boot Application Layer                 |
-|                                                             |
-|   +-----------------------------------------------------+   |
-|   | MatchRestController                                 |   |
-|   | - /api/matches                                      |   |
-|   | - /api/matches/{id}/stream                          |   |
-|   +--------------------------+--------------------------+   |
-|                              |                              |
-|   +--------------------------v--------------------------+   |
-|   | CricketMatchService       | CricketSimulationEngine |   |
-|   | - Domain Rules            | - Scheduled Executor    |   |
-|   | - Innings State           | - Weighted Generator    |   |
-|   +--------------------------+--------------------------+   |
-|                              |                              |
-|   +--------------------------v--------------------------+   |
-|   | SseEmitterService                                   |   |
-|   | - Concurrent Emitter Pool                           |   |
-|   | - Push Event Dispatcher                             |   |
-|   +-----------------------------------------------------+   |
-+-------------------------------------------------------------+
-```
+The application uses **Spring Data JPA** with an **H2 file-backed relational database**. All teams, players, matches, innings snapshots, and individual ball deliveries are stored persistently in `./data/cricketdb.mv.db`.
 
----
+### Database Connection Parameters
 
-## Technology Stack
+- **Database Type**: H2 Relational Database (File Persistence Mode)
+- **JDBC URL**: `jdbc:h2:file:./data/cricketdb;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE`
+- **Driver Class**: `org.h2.Driver`
+- **Username**: `sa`
+- **Password**: `password`
+- **H2 Web Console URL**: `http://localhost:8085/h2-console`
 
-- **Backend Framework**: Spring Boot 3.3.4
-- **Language**: Java 17+ (tested with Java 17, 21, and 25)
-- **Build Tool**: Apache Maven 3.9+
-- **Embedded Web Server**: Apache Tomcat 10.1
-- **Real-Time Communication**: Server-Sent Events (SSE)
-- **Frontend**: Semantic HTML5, Vanilla CSS3 (Custom Design System), JavaScript (ES6+)
+### Database Schema & Tables
 
----
+```mermaid
+erDiagram
+    TEAMS ||--o{ PLAYERS : "has squad"
+    TEAMS ||--o{ MATCHES : "competes as team1 / team2"
+    MATCHES ||--o{ BALL_EVENTS : "records"
 
-## REST API Documentation
+    TEAMS {
+        bigint id PK
+        varchar name "unique"
+        varchar short_name
+        varchar code
+        varchar flag
+        varchar primary_color
+    }
 
-### Base URL: `/api/matches`
+    PLAYERS {
+        bigint id PK
+        varchar name
+        varchar role "BATSMAN, BOWLER, ALL_ROUNDER, WICKET_KEEPER"
+        varchar batting_style
+        varchar bowling_style
+        int matches_played
+        int total_runs
+        int total_wickets
+        bigint team_id FK
+    }
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/matches` | Retrieve all active and completed matches. |
-| `GET` | `/api/matches/{id}` | Retrieve complete match data, current innings, and scorecard. |
-| `GET` | `/api/matches/{id}/summary` | Retrieve post-match analytical summary and awards. |
-| `POST` | `/api/matches/{id}/simulate-ball` | Trigger a single simulated legal or extra delivery. |
-| `POST` | `/api/matches/{id}/auto-simulation` | Enable or disable background live delivery simulation. |
-| `POST` | `/api/matches/{id}/score-update` | Manually submit a custom ball outcome or wicket. |
-| `POST` | `/api/matches/{id}/reset` | Reset a match back to its initial scenario state. |
-| `GET` | `/api/matches/{id}/stream` | Establish an SSE persistent connection for real-time updates. |
+    MATCHES {
+        varchar id PK
+        varchar title
+        varchar series
+        varchar match_type
+        varchar venue
+        varchar status "LIVE, PAUSED, COMPLETED"
+        varchar toss_details
+        int max_overs
+        int target
+        varchar result_message
+        int current_innings_index
+        text match_data_json
+        bigint team1_id FK
+        bigint team2_id FK
+        timestamp created_at
+        timestamp updated_at
+    }
 
-### Request Payload Examples
-
-#### 1. Toggle Auto-Simulation (`POST /api/matches/{id}/auto-simulation`)
-```json
-{
-  "enabled": true,
-  "intervalMs": 2500
-}
-```
-
-#### 2. Manual Score Submission (`POST /api/matches/{id}/score-update`)
-```json
-{
-  "runs": 4,
-  "isWicket": false,
-  "wicketType": null,
-  "isExtra": false,
-  "extraType": null,
-  "customCommentary": "Driven firmly through the covers for four runs."
-}
-```
-
-#### 3. Wicket Entry (`POST /api/matches/{id}/score-update`)
-```json
-{
-  "runs": 0,
-  "isWicket": true,
-  "wicketType": "bowled",
-  "isExtra": false,
-  "extraType": null,
-  "customCommentary": "Clean bowled! The off-stump is knocked out of the ground."
-}
+    BALL_EVENTS {
+        bigint id PK
+        varchar match_id
+        int innings_number
+        int over_number
+        int ball_in_over
+        varchar batsman
+        varchar bowler
+        int runs
+        boolean is_wicket
+        varchar wicket_type
+        boolean is_extra
+        varchar extra_type
+        varchar display
+        varchar commentary
+        timestamp recorded_at
+    }
 ```
 
 ---
 
-## Real-Time Streaming (SSE)
+## REST API Documentation & Testing
 
-Clients subscribe to live score updates by establishing an EventSource connection:
-
-```javascript
-const eventSource = new EventSource('/api/matches/match-1/stream');
-
-eventSource.addEventListener('match-update', (event) => {
-  const match = JSON.parse(event.data);
-  // Update scoreboard DOM elements
-});
+### Interactive Swagger UI
+The application integrates **SpringDoc OpenAPI 3**. Navigate in your browser to:
 ```
-
-If an SSE connection is interrupted, the frontend client automatically transitions to a polling fallback every 2.5 seconds until connection recovery.
-
----
-
-## Project Structure
-
+http://localhost:8085/swagger-ui/index.html
 ```
-9-Cricket-Score/
-|-- pom.xml
-|-- README.md
-|-- .gitignore
-`-- src/
-    `-- main/
-        |-- java/
-        |   `-- com/
-        |       `-- cricket/
-        |           |-- CricketScoreApplication.java
-        |           |-- controller/
-        |           |   `-- MatchRestController.java
-        |           |-- dto/
-        |           |   |-- AutoSimRequest.java
-        |           |   `-- ScoreUpdateRequest.java
-        |           |-- model/
-        |           |   |-- BallEvent.java
-        |           |   |-- BatsmanStats.java
-        |           |   |-- BowlerStats.java
-        |           |   |-- Extras.java
-        |           |   |-- Innings.java
-        |           |   |-- Match.java
-        |           |   |-- MatchSummary.java
-        |           |   |-- Partnership.java
-        |           |   `-- Team.java
-        |           `-- service/
-        |               |-- CricketMatchService.java
-        |               |-- CricketSimulationEngine.java
-        |               `-- SseEmitterService.java
-        `-- resources/
-            |-- application.properties
-            `-- static/
-                |-- index.html
-                |-- css/
-                |   `-- styles.css
-                `-- js/
-                    `-- app.js
-```
+From Swagger UI, you can inspect schemas, execute live API calls, and capture screenshots for documentation.
 
----
+### Postman Collection
+A pre-built Postman collection is included in the project root:
+- **File**: `Cricket_Score_Management_API.postman_collection.json`
+- **Base URL variable**: `http://localhost:8085`
+- Contains ready-to-execute requests for Matches, Ball Scoring, Live Simulation, Teams, and Players.
 
-## Prerequisites
+### Key REST Endpoints
 
-- **Java Development Kit (JDK)**: 17 or higher
-- **Apache Maven**: 3.8 or higher
-- Modern web browser (Chrome, Edge, Firefox, or Safari)
+| Category | Method | Endpoint | Description |
+| :--- | :--- | :--- | :--- |
+| **Matches** | `GET` | `/api/matches` | Retrieve all matches |
+| | `GET` | `/api/matches/{id}` | Retrieve match details, active players, and scorecards |
+| | `POST` | `/api/matches` | Create a new match and persist to DB |
+| | `DELETE`| `/api/matches/{id}` | Delete a match and associated ball history |
+| | `PUT` | `/api/matches/{id}/status?status=...`| Update match status (LIVE, PAUSED, COMPLETED) |
+| | `POST` | `/api/matches/{id}/reset` | Reset match state to initial scenario |
+| | `GET` | `/api/matches/{id}/summary` | Retrieve post-match summary & awards |
+| **Scoring** | `POST` | `/api/matches/{id}/score-update` | Manually record runs, wickets, extras, commentary |
+| | `POST` | `/api/matches/{id}/simulate-ball`| Probabilistically simulate next ball |
+| | `POST` | `/api/matches/{id}/auto-simulation`| Toggle background live delivery simulation |
+| | `GET` | `/api/matches/{id}/stream` | SSE stream for zero-latency live score push |
+| **Teams** | `GET` | `/api/teams` | Get all teams and squads |
+| | `GET` | `/api/teams/{id}` | Get team details by ID |
+| | `POST` | `/api/teams` | Register a new team in database |
+| **Players** | `GET` | `/api/players` | Get all players across all teams |
+| | `POST` | `/api/players` | Add a player to a team squad |
 
 ---
 
 ## Installation and Setup
 
-### 1. Clone the Repository
+### 1. Build the Project
 ```bash
-git clone https://github.com/Pujagithub2006/Cricket-Score.git
-cd Cricket-Score
+mvn clean package
 ```
+All 13 integration tests will run and pass, generating `target/cricket-score-management-1.0.0.jar`.
 
-### 2. Build the Application
-```bash
-mvn clean package -DskipTests
-```
-
-### 3. Run the Application
-Execute the packaged JAR:
+### 2. Run the Application
 ```bash
 java -jar target/cricket-score-management-1.0.0.jar
 ```
 
-Alternatively, use the Spring Boot plugin:
-```bash
-mvn spring-boot:run
-```
-
-### 4. Access the Dashboard
-Open your web browser and navigate to:
-```
-http://localhost:8085
-```
+### 3. Access Web Services
+- **Web Dashboard**: `http://localhost:8085`
+- **Swagger OpenAPI Docs**: `http://localhost:8085/swagger-ui/index.html`
+- **H2 Database Web Console**: `http://localhost:8085/h2-console`
+  *(JDBC URL: `jdbc:h2:file:./data/cricketdb`, User: `sa`, Password: `password`)*
 
 ---
 
-## Configuration
+## Demonstration Walkthrough (Sample Ongoing Matches)
 
-Server properties can be customized in `src/main/resources/application.properties`:
-
-```properties
-# Server Port Configuration
-server.port=8085
-
-# Application Name
-spring.application.name=CricketScoreManagementSystem
-
-# Logging Levels
-logging.level.com.cricket=INFO
-```
-
----
-
-## User Interface and Operations
-
-1. **Match Selection**:
-   - The top header contains match chips to switch between concurrent fixtures (e.g., India vs Australia, England vs Pakistan, Chennai Super Kings vs Mumbai Indians).
-
-2. **Live Match Hero Panel**:
-   - Displays current teams, scores, overs, run rates, target requirements, and the last 12 deliveries in the over reel.
-
-3. **Active Players Display**:
-   - Shows the batter on strike with an active strike marker, balls faced, boundary counts, and strike rate.
-   - Shows current bowler figures, economy rate, and active partnership data.
-
-4. **Dashboard Views**:
-   - **Ball-by-Ball Feed**: Chronological stream of ball events and commentary.
-   - **Full Scorecard**: Complete batting and bowling statistics, extras, and fall of wickets.
-   - **Match Summary**: Post-match analysis, Player of the Match, top performers, and match highlights.
-   - **Scoring Console**: Manual run and extra inputs, single ball stepping, and automated simulation triggers.
+1. **India vs Australia (3rd T20I Decider)**:
+   - India chasing 189 at Wankhede Stadium.
+   - Click **⚡ Step Ball** or **▶ Start Live Sim** to watch the chase unfold in real time.
+2. **England vs Pakistan (T20 Super Clash)**:
+   - England chasing 166 at Melbourne Cricket Ground.
+3. **Chennai Super Kings vs Mumbai Indians (IPL Clash)**:
+   - CSK batting first at Chepauk Stadium.
+4. **Custom Match Creation**:
+   - Click **➕ Create Match** on the dashboard, input teams (e.g. South Africa vs New Zealand), venue, and overs.
+   - The match will be saved to the H2 database and appear immediately in the top navigation bar.
+5. **Teams & Squads Inspection**:
+   - Click the **👥 Teams & Players** tab to inspect full squads, player roles, and add new players/teams directly into persistent database storage.
